@@ -9,6 +9,7 @@ setwd("~/Documents/Stanford/Research /DLS project")
 # Load data
 dls_wide <- read.csv('DLS_raw_data.csv')
 titer <- read.csv('titer_raw_data.csv')
+phago_wide <- read.csv('PhagoBurn_DLS.csv')
 
 ##### Data processing #####
 
@@ -19,6 +20,9 @@ titer <- read.csv('titer_raw_data.csv')
 
 dls_wide <- dls_wide[complete.cases(dls_wide),]
 dls <- gather(dls_wide, key = 'setting', value = 'value', T2:OMKO_20_BME)
+
+phago_wide <- phago_wide[complete.cases(phago_wide),]
+phago <- gather(phago_wide, key = 'setting', value = 'value', LUZ14.Day.0:PEV2.Day.68)
 
 ### Add different columns that can be used to subset the data later
 
@@ -52,10 +56,14 @@ dls$experiment[dls$setting %in% c("LPS_control_red","LPS_20_ascorbate","LPS_20_c
 
 sum(dls$experiment == "NaN")
 
+phago$day <- sapply(strsplit(phago$setting,'[.]'), getElement, 3)
+
 # Add a 'phage' column
 dls$phage <- sapply(strsplit(dls$setting, "_"), getElement, 1)
 
 sum(dls$phage == "NaN")
+
+phago$phage <- sapply(strsplit(phago$setting,'[.]'), getElement, 1)
 
 # Add a 'group' column
 dls$group <- NaN
@@ -135,4 +143,6 @@ write.csv(dls, 'dls.csv')
 
 write.csv(titer.time, 'titer_time.csv')
 write.csv(titer, 'titer.csv')
+
+write.csv(phago, 'phago_processed.csv')
 
