@@ -9,6 +9,9 @@ library(ggpubr)
 library(mclust)
 library(sBIC)
 
+
+phago <- read.csv('PhagoBurn_DLS .csv')
+
 # Set working directory --> change path to where you saved the csv files
 setwd("~/Documents/Stanford/Research /DLS project") 
 
@@ -21,7 +24,7 @@ titer$X <- NULL
 
 dls$setting[dls$setting == "OMKO_control_per"] <- "OMKO_control_peroxide"
 
-# Calculate area under the curve
+# Calculate area under the curve, original dataset
 
 dls$diff_control <- NaN
 
@@ -38,6 +41,8 @@ for (i in unique(dls$measure)) {
     }
   }
 }
+
+
 
 
 dls$diff_control <- abs(dls$diff_control)
