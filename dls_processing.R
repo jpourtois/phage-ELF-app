@@ -9,7 +9,8 @@ setwd("~/Documents/Stanford/Research /DLS project")
 # Load data
 dls_wide <- read.csv('DLS_raw_data.csv')
 titer <- read.csv('titer_raw_data.csv')
-phago_wide <- read.csv('PhagoBurn_DLS.csv')
+
+phago_wide <- read.csv('PhagoBurnDLS.csv')
 
 ##### Data processing #####
 
