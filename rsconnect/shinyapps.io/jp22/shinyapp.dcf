@@ -5,9 +5,9 @@ account: jp22
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6267634
-bundleId: 6397073
+bundleId: 6500481
 url: https://jp22.shinyapps.io/shinyapp/
-when: 1665613660.82879
-lastSyncTime: 1665613660.8288
+when: 1668120692.35702
+lastSyncTime: 1668120692.35703
 asMultiple: FALSE
 asStatic: FALSE

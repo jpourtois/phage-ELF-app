@@ -3,8 +3,9 @@ library(ggplot2)
 library(tidyverse)
 library(stats)
 library(cowplot)
-
+########################
 #### User Interface ####
+########################
 
 ui <- pageWithSidebar(
   
@@ -83,12 +84,16 @@ ui <- pageWithSidebar(
                  to predict lytic activity from DLS data with the trained model. DLS data for the testing pairs should be included in the DLS csv and the testing pairs should be formatted 
                  like the training pairs:"),
                tableOutput('testing_example'),
-               p("If the webpage displays an error message, double-check column names and make sure they match the ones described here. All code is available
-                 at https://github.com/jpourtois/phage-elf. Questions can be directed to jp22@stanford.edu")
+               p("If the webpage displays an error message, double-check column names and make sure they match the ones described here. All code for this Shiny app is available
+                 at https://github.com/jpourtois/DLS_analysis. In addition, we provide a R software package for more flexibility and higher throughput available for download at https://github.com/jpourtois/phageELF. 
+                 Questions can be directed to jp22@alumni.princeton.edu")
                ), 
       tabPanel("Training data",
                br(),
-               textOutput("training_intro"),tableOutput("training_data")),
+               p("This table summarizes the training data and provides the difference in area-under-the-curve (AUC) for the DLS data 
+               and the difference in lytic activity between treatment and control (log10(Treatment) - log10(Control)). For example, a difference of -2 
+               represents a decrease in lytic activity of two orders of magnitude. This table can be downloaded in the sidebar."),
+               tableOutput("training_data")),
       tabPanel("DLS graph", 
                br(),
                p('These plots compare DLS curves for the treatment and control defined in the control-treatment pairs.'),
@@ -108,7 +113,9 @@ ui <- pageWithSidebar(
   )
 )
 
+################
 #### Server ####
+################
 
 server <- function(input, output) {
   
@@ -129,7 +136,7 @@ server <- function(input, output) {
     
     colnames(df_dls) <- c('sample',colnames(df_dls)[-1])
     
-    df_dls <- df_dls[,1:(ncol(df_dls) - 1)]
+    df_dls <- df_dls[,1:(ncol(df_dls))]
     
     return(df_dls)
     
@@ -185,6 +192,8 @@ server <- function(input, output) {
     
   })
   
+  # Processing ----
+  
   ## Function to calculate AUC difference
   
   compute_AUC <- function(dls_data, comp_pairs, metric){
@@ -217,7 +226,6 @@ server <- function(input, output) {
     
   })
   
-  
   # Calculate titer difference
   titer_diff <- reactive({
     
@@ -239,14 +247,12 @@ server <- function(input, output) {
     
   })
   
+  # Format AUC and titer loss data to display in table
   training_data_table <- reactive({
     
     df <- titer_diff()
     
     df$lytic <- format(df$lytic, scientific = TRUE) 
-    
-    df$lytic_diff[df$lytic_diff != 0] <- 10^(-df$lytic_diff[df$lytic_diff != 0])
-    df$lytic_diff <- format(round(df$lytic_diff,0), scientific = TRUE)
     
     colnames(df) <- c('Treatment','AUC difference','Titer','Titer loss')
     
@@ -254,6 +260,7 @@ server <- function(input, output) {
     
   })
   
+  # Calculate AUC for test data
   AUC_test <- reactive({
     
     dls_data <- data()
@@ -270,63 +277,11 @@ server <- function(input, output) {
     
   })
   
-  # OUTPUTS ----
-  
-  output$DLS_example <- renderTable({
-    example_DLS <- tibble('Sample.Name' = c('LPS_control','LPS_t1','LPS_t2', 'LPS_t3'))
-    example_DLS$'Intensities.1.Percent' <- c(0,0,0,0)
-    example_DLS$'Intensities.2.Percent' <- c(0.2,0,0.5, 0.4)
-    example_DLS$'Intensities.3.Percent' <- c(0.7,0.5,0.2,0.2)
-    example_DLS$'Intensities.4.Percent' <- c(0.1,0.5,0.3,0.4)
-    example_DLS$'Intensities.5.Percent' <- c(0,0,0,0)
-    return(example_DLS)
-  })
-  
-  output$size_example <- renderTable({
-    example_size <- tibble('size' = 10^(seq(-2,2)))
-    return(example_size)
-  })
-  
-  output$training_example <- renderTable({
-    
-    example_training <- tibble(control = c('LPS_control','LPS_control','LPS_control'), treatment = c('LPS_control','LPS_t1','LPS_t2'))
-    
-  })
-  
-  output$lytic_example <- renderTable({
-    
-    example_lytic <- tibble(treatment = c('LPS_control','LPS_t1','LPS_t2'), lytic = c(10^9,4.2*10^6,8.0*10^7))
-    example_lytic$lytic <- format(example_lytic$lytic, scientific = TRUE)
-    
-    return(example_lytic)
-  })
-  
-  output$testing_example <- renderTable({
-    
-    example_testing <- tibble(control = 'LPS_control', treatment = 'LPS_t3')
-    
-    return(example_testing)
-  })
-  
-  output$training_intro <- renderText({"This table summarizes 
-    the training data and provides the difference in area-under-the-curve (AUC) for the DLS data
-    and the difference in lytic activity between treatment and control. It can be downloaded in the sidebar."})
-  
-  
-  
-  output$training_data <- renderTable({
-    req(data())
-    req(comp_training())
-    req(titer_data())
-    
-    training_data_table()
-  }) 
-  
-  
+  # Predict titer loss from AUC for test data and make table
   test_data_table <- reactive({
     
     titer_dls <- titer_diff()
-
+    
     AUC_test_df <- AUC_test()
     
     linear.model <- lm(formula = lytic_diff ~ AUC - 1, data = titer_dls)
@@ -340,6 +295,60 @@ server <- function(input, output) {
     
   })
   
+  
+  # OUTPUTS ----
+  
+  # Example of DLS data
+  output$DLS_example <- renderTable({
+    example_DLS <- tibble('Sample.Name' = c('LPS_control','LPS_t1','LPS_t2', 'LPS_t3'))
+    example_DLS$'Intensities.1.Percent' <- c(0,0,0,0)
+    example_DLS$'Intensities.2.Percent' <- c(0.2,0,0.5, 0.4)
+    example_DLS$'Intensities.3.Percent' <- c(0.7,0.5,0.2,0.2)
+    example_DLS$'Intensities.4.Percent' <- c(0.1,0.5,0.3,0.4)
+    example_DLS$'Intensities.5.Percent' <- c(0,0,0,0)
+    return(example_DLS)
+  })
+  
+  # Example of size data
+  output$size_example <- renderTable({
+    example_size <- tibble('size' = 10^(seq(-2,2)))
+    return(example_size)
+  })
+  
+  # Example of control-treatment pair training data
+  output$training_example <- renderTable({
+    
+    example_training <- tibble(control = c('LPS_control','LPS_control','LPS_control'), treatment = c('LPS_control','LPS_t1','LPS_t2'))
+    
+  })
+  
+  # Example of lytic data 
+  output$lytic_example <- renderTable({
+    
+    example_lytic <- tibble(treatment = c('LPS_control','LPS_t1','LPS_t2'), lytic = c(10^9,4.2*10^6,8.0*10^7))
+    example_lytic$lytic <- format(example_lytic$lytic, scientific = TRUE)
+    
+    return(example_lytic)
+  })
+  
+  # Example of control-treatment test data
+  output$testing_example <- renderTable({
+    
+    example_testing <- tibble(control = 'LPS_control', treatment = 'LPS_t3')
+    
+    return(example_testing)
+  })
+  
+  # Render table with AUC and titer loss (training) data
+  output$training_data <- renderTable({
+    req(data())
+    req(comp_training())
+    req(titer_data())
+    
+    training_data_table()
+  }) 
+  
+  # Render table with titer loss predictions 
   output$AUC_test_table <- renderTable({
     req(data())
     req(comp_training())
@@ -347,10 +356,9 @@ server <- function(input, output) {
     req(test_comp())
     
     test_data_table()
-    
-  
   }) 
   
+  # Render plot of DLS data
   output$plot<-renderPlot({
     
     req(data())
@@ -367,17 +375,15 @@ server <- function(input, output) {
     
     to_plot_long <- gather(to_plot, key = "Size", value = "value", colnames(to_plot[2]):colnames(to_plot)[length(colnames(to_plot))] )
     
-    #to_plot_long$xscale <- as.numeric(strsplit(strsplit(to_plot_long$Size,"\\[")[[1]][2],"\\]")[[1]][1])
-    
     ordered <- to_plot_long[order(to_plot_long$sample),]
     
+    # Use size data if provided, otherwise just use integers
     if (!is.null(size_df())) {
       
       ordered$xscale <- size_df()$size
-    }
+    } else {ordered$xscale <- rep(10^((1:(ncol(to_plot) - 1))/ncol(to_plot)), nrow(to_plot))}
     
-    else {ordered$xscale <- rep(1:69, nrow(to_plot))}
-    
+    # Read treatment-control pairs
     comp_pairs_file <- input$comp_pairs
     
     if (is.null(comp_pairs_file)) { return(NULL) }    
@@ -387,6 +393,7 @@ server <- function(input, output) {
     
     controls_name <- unique(comp_pairs$control)
     
+    # Make plot for each control and its treatments DLS data
     plot_data_column = function (data, comp_pairs, control) {
       
       ordered <- data
@@ -400,71 +407,12 @@ server <- function(input, output) {
         theme_bw()
     }
     
+    # Make a plot for each control
     myplots <- lapply(controls_name, plot_data_column, data = ordered, comp_pairs = comp_pairs)
     
     plot_grid(plotlist=myplots, ncol = 1)},height = 550,width = 550)
   
-  output$logi <- renderPlot({
-    
-    req(data())
-    req(comp_training())
-    req(titer_data())
-    
-    titer_dls <- titer_diff()
-    
-    diff_thresh <- -(input$titerthresh)
-    
-    titer_dls$good <- as.numeric(titer_dls$lytic_diff > diff_thresh)
-    
-    logi.model <- glm(formula = good ~ AUC, family = binomial(link = "logit"), 
-                      data = titer_dls)
-    #summary(logi.model)
-    
-    newdata <- data.frame(AUC = seq(0, 200,len=500))
-    
-    #use fitted model to predict values of vs
-    newdata$pred = predict(logi.model, newdata, type="response",se = TRUE)$fit
-    
-    titer_dls$good <- as.numeric(titer_dls$good)
-    
-    # Add confidence intervals
-    
-    #preds <- predict(mod, newdata = preddata, type = "link", se.fit = TRUE)
-    #critval <- 1.96 ## approx 95% CI
-    #upr <- preds$fit + (critval * preds$se.fit)
-    #lwr <- preds$fit - (critval * preds$se.fit)
-    #fit <- preds$fit
-    
-    # Add test data on graph if test data is present
-    
-    test_tibble = tibble(sample = factor(), AUC = numeric(), pred = numeric())
-    
-    if (!is.null(AUC_test())){
-      
-      AUC_test_data <- AUC_test()
-      AUC_test_data$pred <- predict(logi.model, AUC_test_data, type='response', se = TRUE)$fit
-      test_tibble <- rbind(test_tibble, AUC_test_data)
-      
-      ggplot(data = titer_dls, aes(x = AUC, y = good, color = "Training data")) +
-        geom_point(shape = 18, size = 5) +
-        geom_line(data = newdata, aes(x = AUC, y = pred))+
-        stat_smooth(method="glm", method.args=list(family=binomial))+
-        geom_point(data = test_tibble, aes(x = AUC, y = pred, color = "Test data"), shape = 19, size = 2.5)+
-        labs(x = 'AUC difference', y = 'Probability of acceptable titer', color = "")+
-        theme_bw()
-    } else{
-      
-      ggplot(data = titer_dls, aes(x = AUC, y = good)) +
-        geom_point(shape = 18, size = 5) +
-        stat_smooth(method="glm", method.args=list(family=binomial))+
-        labs(x = 'AUC difference', y = 'Probability of acceptable titer')+
-        theme_bw()
-    }
-    
-    
-    #plot logistic regression curve
-    },height = 300,width = 500)
-  
+  # Render plot with training data, model and test data and predictions if provided
   output$linear <- renderPlot({
     
     req(data())
@@ -473,6 +421,7 @@ server <- function(input, output) {
     
     titer_dls <- titer_diff()
     
+    # Train model
     lm.model <- lm(formula = lytic_diff ~ AUC - 1, data = titer_dls)
     
     newdata <- data.frame(AUC = seq(0, 200,len=500))
@@ -512,6 +461,7 @@ server <- function(input, output) {
     
   },height = 300,width = 500)
   
+  # Allow to download data table
   output$downloadTrain <- downloadHandler(
     
     filename = 'AUC_titer_training.csv',
@@ -520,6 +470,7 @@ server <- function(input, output) {
     }
   )
   
+  # Allow to download predictions
   output$downloadTest <- downloadHandler(
     
     filename = 'AUC_titer_test.csv',
