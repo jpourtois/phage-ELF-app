@@ -61,7 +61,7 @@ ui <- pageWithSidebar(
     tabsetPanel(
       tabPanel("Instructions",
                br(),
-               p("This webpage accompanies the paper 'Bacteriophage Enumeration and Bioactivity Prediction Using Dynamic Light Scattering'. 
+               p("This webpage accompanies the paper 'Monitoring and Predicting Phage Bioactivity Using Dynamic Light Scattering'. 
     It provides a user-friendly platform for scientists to train a model with paired DLS and lytic activity data and use this model to
     predict lytic activity from new DLS data."),
                p("The user must upload CSV files with DLS data, lytic data and treatment-control pairs to train the model. CSV files can 
@@ -85,7 +85,7 @@ ui <- pageWithSidebar(
                  like the training pairs:"),
                tableOutput('testing_example'),
                p("If the webpage displays an error message, double-check column names and make sure they match the ones described here. All code for this Shiny app is available
-                 at https://github.com/jpourtois/DLS_analysis. In addition, we provide a R software package for more flexibility and higher throughput available for download at https://github.com/jpourtois/phageELF. 
+                 at https://github.com/jpourtois/phage-ELF-app. In addition, we provide a R software package for more flexibility and higher throughput available for download at https://github.com/jpourtois/phageELF. 
                  Questions can be directed to jp22@alumni.princeton.edu")
                ), 
       tabPanel("Training data",
@@ -284,7 +284,7 @@ server <- function(input, output) {
     
     AUC_test_df <- AUC_test()
     
-    linear.model <- lm(formula = lytic_diff ~ AUC - 1, data = titer_dls)
+    linear.model <- lm(formula = lytic_diff ~ AUC, data = titer_dls)
     
     AUC_test_df$pred <- predict(linear.model, AUC_test_df, type='response', se = TRUE)$fit
     AUC_test_df$SE <- predict(linear.model, AUC_test_df, type='response', se = TRUE)$se.fit
@@ -368,7 +368,7 @@ server <- function(input, output) {
     
     metric <- input$metric
     
-    name.metrics <- c('Intensity','Volume','Number')
+    name.metrics <- c('Intensity (%)','Volume (%)','Number (%)')
     names(name.metrics) <- c('intens','volume','number')
     
     y.axis.name <- name.metrics[metric]
@@ -402,9 +402,11 @@ server <- function(input, output) {
       
       ggplot(to_plot,aes(x=xscale,y=value, color = sample)) +
         geom_line() +
-        labs(x = 'Size', y = y.axis.name, color = 'Treatment') +
+        labs(x = bquote("D"[h]~"(nm)"), y = y.axis.name, color = 'Treatment') +
         scale_x_continuous(trans='log10') +
-        theme_bw()
+        theme_classic() + 
+        theme(axis.text = element_text(size = 13), axis.title = element_text(size = 14), legend.text = element_text(size = 14), legend.title = element_blank()) +
+        annotation_logticks(sides = 'b')
     }
     
     # Make a plot for each control
@@ -422,7 +424,7 @@ server <- function(input, output) {
     titer_dls <- titer_diff()
     
     # Train model
-    lm.model <- lm(formula = lytic_diff ~ AUC - 1, data = titer_dls)
+    lm.model <- lm(formula = lytic_diff ~ AUC, data = titer_dls)
     
     newdata <- data.frame(AUC = seq(0, 200,len=500))
     
@@ -444,18 +446,20 @@ server <- function(input, output) {
       ggplot() +
         geom_point(data = titer_dls, aes(x = AUC, y = lytic_diff, color = "Training data")) +
         geom_line(data = newdata, aes(x = AUC, y = pred)) +
-        geom_point(data = test_tibble, aes(x = AUC, y = pred, color = "Test data"), shape = 19, size = 2.5)+
+        geom_point(data = test_tibble, aes(x = AUC, y = pred, color = "Test data"), shape = 19, size = 1.5)+
         geom_ribbon(data = newdata, aes(x = AUC,ymin = lower, ymax = upper), alpha=0.3) +
-        labs(x = 'AUC Difference', y = 'Difference in lytic activity (log10)') +
-        theme_bw()
+        labs(x = 'AUC Difference (%)', y = 'Difference in lytic activity (log10)') +
+        theme_classic() +
+        theme(axis.text = element_text(size = 13), axis.title = element_text(size = 14), legend.text = element_text(size = 14), legend.title = element_blank())
     } else{
       
       ggplot() +
         geom_point(data = titer_dls, aes(x = AUC, y = lytic_diff)) +
         geom_line(data = newdata, aes(x = AUC, y = pred)) +
         geom_ribbon(data = newdata, aes(x = AUC,ymin = lower, ymax = upper), alpha=0.3) +
-        labs(x = 'AUC Difference', y = 'Difference in lytic activity') +
-        theme_bw()
+        labs(x = 'AUC Difference (%)', y = 'Difference in lytic activity (log10)') +
+        theme_classic()  +
+        theme(axis.text = element_text(size = 13), axis.title = element_text(size = 14))
     }
     
     
